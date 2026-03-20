@@ -29,6 +29,17 @@ ExtraMapping: Dict[Extra, str] = {
 }
 
 
+def ensure_iterable(value):
+    """Convert a scalar to a list, leave iterables as-is (excluding str)."""
+    if isinstance(value, str):
+        return [value]
+    try:
+        iter(value)
+    except TypeError:
+        return [value]
+    return list(value)
+
+
 def enlarge_index(index: pd.MultiIndex, max_levels: int, attr=None) -> List[Tuple]:
     """
     Enlarge the given index so that all levels have the depth of the maximum level.

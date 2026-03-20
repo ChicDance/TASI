@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from .indexing import ILocator, LocatableEntity, LocLocator
-from .utils import MULTI_INDEX_SEPERATOR, add_attributes, to_pandas_multiindex
+from .utils import MULTI_INDEX_SEPERATOR, add_attributes, ensure_iterable, to_pandas_multiindex
 
 
 class TimestampMixin:
@@ -27,10 +27,7 @@ class TimestampMixin:
         columns: pd.Index = None,
     ):
 
-        try:
-            len(timestamps)
-        except:
-            timestamps = [timestamps]
+        timestamps = ensure_iterable(timestamps)
 
         if self.index.nlevels == 1:
             # assume timestamps are on the index
@@ -125,14 +122,13 @@ class PandasBase(pd.DataFrame, TASIBase, TimestampMixin):
         # read csv data
         df = pd.read_csv(file, **{"parse_dates": True, **kwargs})
 
-        # parse dates
-        df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601")
+        # parse dates if timestamp exists
+        if "timestamp" in df.columns:
+            df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601", errors="coerce")
 
         # try to set index
-        try:
+        if cls.TIMESTAMP_COLUMN in df.columns:
             df.set_index(cls.TIMESTAMP_COLUMN, inplace=True)
-        except KeyError:
-            pass
 
         # ensure the column is a pandas MultiIndex
         df.columns = to_pandas_multiindex(df.columns.to_list(), separator=seperator)
@@ -182,10 +178,7 @@ class CollectionBase(PandasBase, IndexMixin):
         Returns:
             Self: The selected rows and attributes
         """
-        try:
-            len(ids)
-        except BaseException:
-            ids = [ids]
+        ids = ensure_iterable(ids)
 
         if attributes is None:
             return self.loc[pd.IndexSlice[:, ids], :]
