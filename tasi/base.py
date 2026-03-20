@@ -5,7 +5,12 @@ import numpy as np
 import pandas as pd
 
 from .indexing import ILocator, LocatableEntity, LocLocator
-from .utils import MULTI_INDEX_SEPERATOR, add_attributes, to_pandas_multiindex
+from .utils import (
+    MULTI_INDEX_SEPERATOR,
+    add_attributes,
+    ensure_iterable,
+    to_pandas_multiindex,
+)
 
 
 class TimestampMixin:
@@ -27,10 +32,7 @@ class TimestampMixin:
         columns: pd.Index = None,
     ):
 
-        try:
-            len(timestamps)
-        except:
-            timestamps = [timestamps]
+        timestamps = ensure_iterable(timestamps)
 
         if self.index.nlevels == 1:
             # assume timestamps are on the index
@@ -119,20 +121,23 @@ class PandasBase(pd.DataFrame, TASIBase, TimestampMixin):
             indices (Union[List, str]): The name of the columns to use as index
 
         """
-        if indices and not hasattr(kwargs, "index_col"):
-            kwargs["index_col"] = indices
+        if indices and "index_col" not in kwargs:
+            if isinstance(indices, (list, tuple)) and len(indices) == 1:
+                kwargs["index_col"] = indices[0]
+            else:
+                kwargs["index_col"] = indices
 
         # read csv data
         df = pd.read_csv(file, **{"parse_dates": True, **kwargs})
 
-        # parse dates
-        df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601")
-
-        # try to set index
-        try:
-            df.set_index(cls.TIMESTAMP_COLUMN, inplace=True)
-        except KeyError:
-            pass
+        # parse timestamp if available
+        if cls.TIMESTAMP_COLUMN in df.columns:
+            df[cls.TIMESTAMP_COLUMN] = pd.to_datetime(
+                df[cls.TIMESTAMP_COLUMN], format="ISO8601", errors="coerce"
+            )
+            # set index if timestamp not already in index
+            if cls.TIMESTAMP_COLUMN not in df.index.names:
+                df.set_index(cls.TIMESTAMP_COLUMN, inplace=True)
 
         # ensure the column is a pandas MultiIndex
         df.columns = to_pandas_multiindex(df.columns.to_list(), separator=seperator)
@@ -182,10 +187,7 @@ class CollectionBase(PandasBase, IndexMixin):
         Returns:
             Self: The selected rows and attributes
         """
-        try:
-            len(ids)
-        except BaseException:
-            ids = [ids]
+        ids = ensure_iterable(ids)
 
         if attributes is None:
             return self.loc[pd.IndexSlice[:, ids], :]

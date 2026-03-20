@@ -5,7 +5,19 @@ import pandas as pd
 
 MULTI_INDEX_SEPERATOR = "|"
 
+def ensure_iterable(value):
+    """Ensure a scalar or string is converted to a list, leave iterables as-is."""
+    if isinstance(value, str):
+        return [value]
+    try:
+        iter(value)
+    except TypeError:
+        return [value]
+    return list(value)
+
+
 __all__ = [
+    "ensure_iterable",
     "enlarge_index",
     "flatten_index",
     "add_attributes",
